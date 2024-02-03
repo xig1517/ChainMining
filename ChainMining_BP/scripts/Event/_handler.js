@@ -1,11 +1,13 @@
+import { SystemAfterEvents, SystemBeforeEvents, WorldAfterEvents, WorldBeforeEvents } from "@minecraft/server";
 import playerBreakBlock from "./playerBreakBlock.js";
-
-const eventList = {
+    
+const events = {
     "PlayerBreakBlock": playerBreakBlock
-}; 
+}
 
 /**
  * 
- * @param {string} signal
+ * @param {WorldAfterEvents | WorldBeforeEvents | SystemAfterEvents | SystemBeforeEvents} ev 
+ * @param {string} signal 
  */
-export default _handler = (ev, signal) => eventList[signal](ev);
+export default function _handler(ev, signal) { events[signal](ev); }
