@@ -3,28 +3,24 @@
     "header": {
         "description": "簡單的連鎖挖礦擴充 支援1.20",
         "name": "ChainMining",
-        "uuid": "1a2f42bd-98d4-4e0d-8e3f-934ab8a0c05e",
-        "version": [1, 0, 0],
-        "min_engine_version": [ 1, 19, 0 ]
+        "uuid": "1a2f42bd-98d4-4e0d-8e3f-934aa8a0c05e",
+        "version": [0, 0, 1],
+        "min_engine_version": [ 1, 20, 50 ]
     },
     "modules": [
         {
             "description": "使用JavaScript編寫 可做為學習之素材",
             "type": "script",
             "language": "javascript",
-            "uuid": "1a1b53fc-5653-4a75-91b7-9cdF027674ae",
+            "uuid": "1a1b53fc-5653-4a75-91b7-9cdF127674ae",
             "version": [0, 0, 1],
             "entry": "scripts/main.js"
         }
     ],
     "dependencies": [
         {
-          "module_name": "@minecraft/server",
-          "version": "1.7.0"
-        },
-        {
-          "module_name": "@minecraft/server-gametest",
-          "version": "1.0.0-beta"
+            "module_name": "@minecraft/server",
+            "version": "1.8.0-beta"
         }
     ]
 }
