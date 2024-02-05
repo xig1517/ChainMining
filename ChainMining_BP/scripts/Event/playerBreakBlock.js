@@ -3,64 +3,45 @@ import { Block, Player, BlockPermutation, ItemStack } from "@minecraft/server"
 import { system } from "@minecraft/server";
 import { oreTable, toolTable } from "../table.js";
 
-const timeout = ms => new Promise(resolve => system.runTimeout(resolve, ms))
-
-/**
- * 
- * @param { Block } block 
- * @returns { Block[] }
- */
-const chainLocation = (block) => [
-    block.offset({x:1, y:0, z:0}),
-    block.offset({x:-1, y:0, z:0}),
-    block.offset({x:0, y:1, z:0}),
-    block.offset({x:0, y:-1, z:0}),
-    block.offset({x:0, y:0, z:1}),
-    block.offset({x:0, y:0, z:-1})
-]
-
 class Chain {
 
     /**
      * 
+     * @param {Block} block
      * @param {Player} breaker 
      * @param {BlockPermutation} brokenBlock 
      * @param {ItemStack|undefined} itemUse 
      */
-    constructor(breaker, brokenBlock, itemUse) {
-        this.breaker = breaker;
-        this.brokenBlock = brokenBlock;
-        this.tool = itemUse;
+    constructor(block, breaker, brokenBlock, itemUse) {
+        this.block = block;                     // 起點座標
+        this.breaker = breaker;                 // 目標玩家
+        this.brokenBlock = brokenBlock;         // 被破壞的方塊permutation
+        this.tool = itemUse;                    // 使用的工具
 
-        this.selectSlot = breaker.selectedSlot;
+        this.selectSlot = breaker.selectedSlot; // 玩家工具的位置
     }
 
     /**
      * 
-     * @param {Block} block 
      */
-    chain(block) {
-        if (block.typeId != this.brokenBlock.type.id) return;
-        if (this.tool == undefined) return;
-        if (this.selectSlot != this.breaker.selectedSlot) return;
-        
-        this.#breakBlock(block);
-        chainLocation(block).forEach(async b => { await timeout(1), this.chain(b); });
-    }
+    *chain() {
+        let blocks = [this.block];
 
+        while (blocks.length > 0) {
+            const blockTop = blocks.pop();
 
-    #damageTool() {
-        const [enchantments, durability] = [
-            this.tool.getComponent("enchantments").enchantments,
-            this.tool.getComponent("durability")
-        ];
+            for (const besideBlock of [blockTop.above(), blockTop.below(), blockTop.east(), blockTop.south(), blockTop.west(), blockTop.north()]) {
+                if (besideBlock == undefined) continue;
+                if (besideBlock.typeId != this.brokenBlock.type.id) continue;
+                if (this.tool == undefined) continue;
+                if (this.selectSlot != this.breaker.selectedSlot) continue;
 
-        if (enchantments.hasEnchantment("unbreaking")) {
-            if (Math.random() * 100 <= durability.getDamageChance(enchantments.getEnchantment("unbreaking").level)) return;
+                this.#breakBlock(besideBlock);
+                blocks.push(besideBlock);
+            }
+            yield;
         }
-
-        if (durability.damage + 1 >= durability.maxDurability) this.tool = undefined;
-        else durability.damage += 1;
+        return;
     }
 
     /**
@@ -74,7 +55,21 @@ class Chain {
             this.breaker.getComponent("equippable").setEquipment("Mainhand", this.tool)
     }
 
-};
+    #damageTool() {
+        const [enchantableComponent, durabilityComponent] = [
+            this.tool.getComponent("enchantable"),
+            this.tool.getComponent("durability")
+        ];
+
+        if (enchantableComponent.hasEnchantment("unbreaking")) {
+            const damageChance = durabilityComponent.getDamageChance(enchantableComponent.getEnchantment("unbreaking").level);
+            if (Math.random() * 100 <= damageChance) return;
+        }
+        
+        if (durabilityComponent.damage + 1 >= durabilityComponent.maxDurability) this.tool = undefined;
+        else durabilityComponent.damage += 1;
+    }
+}
 
 
 /**
@@ -82,16 +77,15 @@ class Chain {
  * @param { PlayerBreakBlockAfterEvent } ev 
 */
 export default function playerBreakBlock(ev) {
-    const [block, breaker, brokenBlock, itemBeforeBreak, itemAfterBreak] 
-    = [ev.block, ev.player, ev.brokenBlockPermutation, ev.itemStackBeforeBreak, ev.itemStackAfterBreak];
+    const [block, breaker, brokenBlock, itemAfterBreak] 
+    = [ev.block, ev.player, ev.brokenBlockPermutation, ev.itemStackAfterBreak];
 
     if (!Object.keys(oreTable).includes(brokenBlock.type.id) ||
-        !Object.keys(toolTable).includes(itemBeforeBreak.typeId)) return;
+        !Object.keys(toolTable).includes(itemAfterBreak.typeId)) return;
     
-    if (oreTable[brokenBlock.type.id] > toolTable[itemBeforeBreak.typeId]) return;
+    if (oreTable[brokenBlock.type.id] > toolTable[itemAfterBreak.typeId]) return;
 
     if (itemAfterBreak == undefined) return;
 
-    const chain = new Chain(breaker, brokenBlock, itemAfterBreak);
-    chainLocation(block).forEach(b => chain.chain(b));
+    system.runJob(new Chain(block, breaker, brokenBlock, itemAfterBreak).chainClass.chain());
 }
